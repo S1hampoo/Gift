@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>GIFT DROP · 참여하기</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100dvh;background:#070a16;color:#fff;font-family:'Pretendard',system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;gap:14px}
+  .card{width:100%;max-width:420px;background:#141a30;border-radius:24px;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+  h1{margin:0 0 4px;font-size:22px;letter-spacing:.06em}
+  h2{margin:0 0 10px;font-size:15px;opacity:.85}
+  .sub{font-size:13px;opacity:.6;margin-bottom:18px}
+  label{display:block;font-size:12px;opacity:.7;margin:12px 0 6px}
+  input,textarea{width:100%;background:#070a16;border:1.5px solid #2a3350;border-radius:14px;color:#fff;font:inherit;font-size:17px;padding:14px;outline:none}
+  input:focus,textarea:focus{border-color:#e8b84a}
+  textarea{height:100px;resize:none}
+  .cnt{text-align:right;font-size:12px;opacity:.5;margin-top:4px}
+  button{width:100%;margin-top:16px;padding:17px;border:0;border-radius:16px;background:linear-gradient(135deg,#c8102e,#e8b84a);color:#fff;font:inherit;font-size:17px;font-weight:800;letter-spacing:.05em;box-shadow:0 10px 30px rgba(200,16,46,.35);transition:transform .1s}
+  button.alt{background:linear-gradient(135deg,#1a7f3c,#4cc9f0);box-shadow:0 10px 30px rgba(26,127,60,.35)}
+  button:active{transform:scale(.97)} button:disabled{opacity:.4;box-shadow:none}
+  #st{text-align:center;font-size:13px;margin-top:4px;opacity:.6}
+  .ok{color:#06d6a0}.err{color:#ff4d6d}
+  #toast{position:fixed;left:50%;top:40px;transform:translateX(-50%) translateY(-20px);background:#e8b84a;color:#2a1a10;padding:12px 20px;border-radius:999px;font-weight:700;opacity:0;transition:.3s;pointer-events:none;z-index:9}
+  #toast.show{opacity:1;transform:translateX(-50%)}
+  .selfie{display:flex;gap:14px;align-items:center}
+  .selfie .pv{width:96px;height:96px;border-radius:50%;background:#070a16;border:2px dashed #2a3350;overflow:hidden;flex:none;display:flex;align-items:center;justify-content:center;font-size:30px}
+  .selfie .pv img{width:100%;height:100%;object-fit:cover}
+  .selfie .r{flex:1}
+  .selfie .r button{margin-top:0}
+  .selfie input[type=file]{display:none}
+  .tip{font-size:12px;opacity:.55;margin-top:8px;line-height:1.5}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>🎁 GIFT DROP</h1>
+  <div class="sub">메시지를 쓰면 산타가 선물상자를 배달해요</div>
+  <label>닉네임</label>
+  <input id="nick" maxlength="12" placeholder="이름 또는 별명">
+  <label>메시지</label>
+  <textarea id="msg" maxlength="80" placeholder="상자를 열면 보일 한마디"></textarea>
+  <div class="cnt"><span id="n">0</span>/80</div>
+  <button id="send" disabled>선물 보내기</button>
+  <div id="st">연결 중…</div>
+</div>
+
+<div class="card">
+  <h2>🤳 셀카로 화면에 등장하기</h2>
+  <div class="selfie">
+    <div class="pv" id="pv">🙂</div>
+    <div class="r">
+      <input type="file" id="file" accept="image/*" capture="user">
+      <button class="alt" id="shoot">셀카 찍기</button>
+      <button id="sendAv" disabled style="margin-top:10px">아바타 보내기</button>
+    </div>
+  </div>
+  <div class="tip">얼굴이 가운데 오게 찍어주세요. 산타 모자를 쓴 내 아바타가 큰 화면을 돌아다닙니다. (사진은 화면용으로만 쓰이고 저장되지 않아요)</div>
+</div>
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<script>
+const room=new URLSearchParams(location.search).get('room')||'GIFTBOX';
+const $=id=>document.getElementById(id);
+const st=$('st'),send=$('send'),msg=$('msg'),nick=$('nick'),file=$('file'),pv=$('pv'),sendAv=$('sendAv');
+nick.value=localStorage.getItem('gd-nick')||'';
+msg.addEventListener('input',()=>$('n').textContent=msg.value.length);
+function toast(t){ const e=$('toast'); e.textContent=t; e.classList.add('show'); setTimeout(()=>e.classList.remove('show'),1600); }
+
+let conn=null;
+function connect(){ st.textContent='연결 중…'; st.className='';
+  const peer=new Peer({debug:1});
+  peer.on('open',()=>{ conn=peer.connect(room,{reliable:true});
+    conn.on('open',()=>{ st.textContent='큰 화면에 연결됨'; st.className='ok'; send.disabled=false; sendAv.disabled=!faceData; });
+    conn.on('close',()=>{ st.textContent='연결 끊김 · 다시 연결 중'; st.className='err'; send.disabled=true; sendAv.disabled=true; setTimeout(connect,1500); });
+    conn.on('error',()=>{ st.textContent='연결 실패 · 재시도'; st.className='err'; setTimeout(connect,2000); }); });
+  peer.on('error',e=>{ st.textContent='오류: '+e.type; st.className='err'; setTimeout(connect,2500); });
+}
+connect();
+
+send.addEventListener('click',()=>{ const m=msg.value.trim(); if(!m||!conn||!conn.open) return;
+  const n=nick.value.trim()||'익명'; localStorage.setItem('gd-nick',n); conn.send({type:'gift',nick:n,msg:m});
+  msg.value=''; $('n').textContent='0'; toast('산타가 배달하러 갑니다 🛷'); if(navigator.vibrate) navigator.vibrate(30); });
+
+/* 셀카 → 중앙 정사각 크롭 256px → JPEG */
+let faceData=null;
+$('shoot').addEventListener('click',()=>file.click());
+file.addEventListener('change',()=>{ const f=file.files[0]; if(!f) return;
+  const img=new Image(); const url=URL.createObjectURL(f);
+  img.onload=()=>{ const S=256, cv=document.createElement('canvas'); cv.width=cv.height=S; const c=cv.getContext('2d');
+    const side=Math.min(img.width,img.height)*.78, sx=(img.width-side)/2, sy=(img.height-side)/2 - img.height*.06; // 얼굴은 보통 약간 위
+    c.drawImage(img, sx, Math.max(0,sy), side, side, 0,0,S,S);
+    faceData=cv.toDataURL('image/jpeg',.72); pv.innerHTML=`<img src="${faceData}">`; sendAv.disabled=!(conn&&conn.open); URL.revokeObjectURL(url); };
+  img.src=url; });
+sendAv.addEventListener('click',()=>{ if(!faceData||!conn||!conn.open) return; const n=nick.value.trim()||'익명'; localStorage.setItem('gd-nick',n);
+  conn.send({type:'avatar',nick:n,img:faceData}); toast('아바타가 등장했어요 🎅'); sendAv.disabled=true; setTimeout(()=>sendAv.disabled=false,4000); if(navigator.vibrate) navigator.vibrate(30); });
+</script>
+</body>
+</html>
